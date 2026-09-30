@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>TC 總務申請中心｜物品借用・公務車借出・場地預借</title>
+<style>
+:root{--bg:#fbf5ee;--card:#fffdf9;--text:#2e241c;--muted:#7a6a5c;--accent:#b85a1f;--on:#fff;--accent2:#fbe8d5;--line:#ecd9c6;--ok:#2e7d32;--bad:#c62828}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1f1813;--card:#2a211a;--text:#f3e8dc;--muted:#b8a593;--accent:#f0a36b;--on:#2a1a0e;--accent2:#3a2c20;--line:#4a3a2c;--ok:#81c784;--bad:#ef9a9a}}
+:root[data-theme="dark"]{--bg:#1f1813;--card:#2a211a;--text:#f3e8dc;--muted:#b8a593;--accent:#f0a36b;--on:#2a1a0e;--accent2:#3a2c20;--line:#4a3a2c;--ok:#81c784;--bad:#ef9a9a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;line-height:1.6}
+header{text-align:center;padding:22px 16px 4px}
+h1{margin:0;font-size:1.35rem}
+header p{margin:4px 0 0;color:var(--muted);font-size:.88rem}
+nav{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:14px 12px}
+nav button{border:1px solid var(--line);background:var(--card);color:var(--text);padding:10px 18px;border-radius:999px;font-size:.95rem;cursor:pointer}
+nav button.on{background:var(--accent);color:var(--on);border-color:var(--accent)}
+main{max-width:680px;margin:0 auto;padding:0 12px 40px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
+.card h2{margin:0 0 10px;font-size:1.05rem}
+.rules{background:var(--accent2);font-size:.88rem}
+.rules ol{margin:6px 0 0;padding-left:1.2em}
+.rules a{color:var(--accent);font-weight:600}
+label.f{display:block;margin-bottom:14px;font-weight:600;font-size:.93rem}
+.req::after{content:" *";color:var(--bad)}
+.hint{display:block;font-weight:400;color:var(--muted);font-size:.8rem}
+input[type=text],input[type=email],input[type=tel],input[type=date],input[type=datetime-local],select,textarea{width:100%;margin-top:6px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);font:inherit}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);border-color:transparent}
+.opts{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.opt{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-weight:400;cursor:pointer}
+.opt:has(input:checked){border-color:var(--accent);background:var(--accent2)}
+.row{display:grid;grid-template-columns:1fr 90px;gap:10px}
+.sub{font-size:.82rem;color:var(--muted);font-weight:600;margin:4px 0 -6px}
+.err{color:var(--bad);font-size:.8rem;font-weight:400;display:none}
+.bad .err{display:block}
+.bad input:not([type=radio]):not([type=checkbox]),.bad select{border-color:var(--bad)}
+.go{width:100%;padding:13px;border:0;border-radius:12px;background:var(--accent);color:var(--on);font-size:1rem;font-weight:700;cursor:pointer}
+.done{display:none;text-align:center}
+.done h2{color:var(--ok)}
+.done pre{text-align:left;white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:.82rem}
+.done button{margin:4px;padding:10px 16px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer}
+</style>
+</head>
+<body>
+<header><h1>TC 總務申請中心</h1><p>物品借用 · 公務車借出 · 場地預借</p></header>
+<nav id="nav"></nav>
+<main id="app"></main>
+<script>
+// 送出目的地：填入 Google Apps Script 網頁應用程式網址後，表單會自動寫入你的試算表。
+// 留空時，送出後會顯示申請摘要，可複製傳給總務組。
+var ENDPOINT = "";
+
+var UNITS=["使徒中心","牧養部","事工部","啟事部","夢想之家","事奉學院","CCH"];
+var CARS=["總務公務車 BKX-0763","牧養小車 AKQ-8550","得利卡 BUH-5683","使徒中心車 BKR-6083","貴賓接待專車 AQX-5918"];
+var ITEMS=[1,2,3,4,5].map(function(n){var c="一二三四五"[n-1];return {k:"item"+n,label:"物品名稱（"+c+"）",q:"qty"+n,ql:"數量",req:n===1}});
+
+var PAGES={
+ goods:{tab:"📦 物品借用",title:"物品借用申請單",
+  rules:'<h2>◎ 物品借用注意事項及規範</h2><a href="https://reurl.cc/eDK75L" target="_blank" rel="noopener">所有物品可借用清單 ↗</a><ol><li>需填寫屬實，若不實則總務組有權駁回申請。</li><li>歸還時需與值班同工現場相互清點物品數量，確認無髒污及損毀狀況，若雙方無清點程序，將視為無歸還，並追溯物品賠償責任。</li><li>借用消耗品（如：紙杯、礦泉水等）只適用於全教會性之聚會，小組及各分區活動請自備。</li><li>請務必於填寫的歸還日期內歸還，請勿未提出申請或告知就自行延時。</li><li>若違反上述規範，給予規勸，再犯者將取消借用資格一個月。</li></ol>',
+  fields:[
+   {k:"email",label:"Email",t:"email",req:1},
+   {k:"unit",label:"申請單位",t:"select",o:UNITS,req:1},
+   {k:"name",label:"申請人",t:"text",req:1},
+   {k:"event",label:"活動名稱",t:"text",req:1},
+   {k:"place",label:"使用地點",t:"text",req:1},
+   {k:"pick",label:"拿取物品時間",t:"date",req:1},
+   {k:"ret",label:"歸還物品時間",t:"date",req:1},
+   {t:"items"}
+  ]},
+ car:{tab:"🚗 公務車借出",title:"公務車借出表單",
+  rules:'<h2>⚠️ 重要注意事項</h2>借車前須已報告直屬主管並取得核准，請據實填寫，資料會被查核。',
+  fields:[
+   {k:"email",label:"Email",t:"email",req:1},
+   {k:"agree",label:"我已報告直屬主管並獲核准，且已詳細閱讀上述注意事項",t:"check",req:1},
+   {k:"boss",label:"直屬主管姓名",t:"text",req:1},
+   {k:"purpose",label:"用途",t:"radio",o:["福音車出勤","公務","私人"],req:1},
+   {k:"car",label:"使用車輛",t:"radio",o:CARS,req:1},
+   {k:"desc",label:"說明用途",hint:"福音車出勤請寫「繞行」；公務或私人請寫明，例如：xx街載貨至教會、送禮至親友家",t:"text",req:1},
+   {k:"route",label:"行駛路線",hint:"福音車繞行請直接寫「北區」或「南區」",t:"text",req:1},
+   {k:"applicant",label:"申請同工姓名",t:"text",req:1},
+   {k:"driver",label:"駕駛人姓名",t:"text",req:1},
+   {k:"tel",label:"聯絡電話",t:"tel",req:1},
+   {k:"keyOut",label:"拿鑰匙時間",t:"datetime-local",req:1},
+   {k:"keyIn",label:"歸還鑰匙時間",t:"datetime-local",req:1},
+   {k:"note",label:"備註",t:"area"}
+  ]},
+ venue:{tab:"🏛️ 場地預借",title:"場地預借申請",
+  rules:'<h2>🏛️ 場地預借</h2>請填寫使用日期、時段，並先選擇場館再選擇借用場地，可複選多個場地。<h2 style="margin-top:12px">◎ 注意事項</h2><ol><li>營運部總務組場地管理得因實際場地堪用狀況，對所提出申請場地保有核定權。</li></ol>',
+  fields:[
+   {k:"unit",label:"場地借用單位",t:"select",o:["聚會部","支持部","牧養部","營運部","財務室","夢想之家"],req:1},
+   {k:"name",label:"場地申請人",t:"text",req:1},
+   {k:"date",label:"使用日期",t:"date",req:1},
+   {k:"start",label:"使用時間",t:"time",req:1},
+   {k:"end",label:"結束時間",t:"time",req:1},
+   {k:"use",label:"場地用途",t:"radio",o:["小組聚會","福音茶會","課程","會議","關懷牧養","其他"],req:1},
+   {k:"floor",label:"場館",t:"radio",o:["西門堂 4樓","西門堂 5樓","西門堂 6樓","景美館","士林館"],req:1},
+   {k:"room",label:"申請使用場地",hint:"可複選，請先選擇場館",t:"multi",req:1,by:{"西門堂 4樓":["402","403","404","405","406","407","408","其他"],"西門堂 5樓":["交誼廳","會堂"],"西門堂 6樓":["小組教室","梯間","交誼廳","會堂"],"景美館":["11-2.3","11-7.8","接待室"],"士林館":["會堂","交誼廳","吧檯","諮商室","會議室"]}}
+  ]}
+};
+
+var nav=document.getElementById("nav"),app=document.getElementById("app");
+Object.keys(PAGES).forEach(function(id){
+  var b=document.createElement("button");b.textContent=PAGES[id].tab;b.id="t-"+id;
+  b.onclick=function(){open(id)};nav.appendChild(b);
+});
+
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+
+function fieldHTML(f){
+  var r=f.req?" req":"",h=f.hint?'<span class="hint">'+f.hint+'</span>':"",e='<span class="err">此欄位為必填</span>';
+  var w='<label class="f" data-k="'+f.k+'"><span class="'+r.trim()+'">'+f.label+'</span>'+h;
+  if(f.t==="select")return w+'<select name="'+f.k+'"><option value="">— 請選擇 —</option>'+f.o.map(function(o){return"<option>"+o+"</option>"}).join("")+'</select>'+e+'</label>';
+  if(f.t==="area")return w+'<textarea name="'+f.k+'" rows="3"></textarea></label>';
+  if(f.t==="radio"||f.t==="multi"){var ty=f.t==="radio"?"radio":"checkbox";return w+e+'</label><div class="opts" id="o-'+f.k+'">'+(f.by?'<span class="hint">請先選擇場館</span>':f.o.map(function(o){return'<label class="opt"><input type="'+ty+'" name="'+f.k+'" value="'+o+'"> '+o+'</label>'}).join(""))+'</div><div style="height:14px"></div>';}
+  if(f.t==="check")return'<label class="opt" data-k="'+f.k+'" style="margin-bottom:14px"><input type="checkbox" name="'+f.k+'" value="是"> <span class="'+r.trim()+'">'+f.label+'</span></label>';
+  return w+'<input type="'+f.t+'" name="'+f.k+'">'+e+'</label>';
+}
+
+function itemsHTML(){
+  return '<div class="sub">借用物品（第一項必填，最多五項）</div><br>'+ITEMS.map(function(i){
+    return '<div class="row"><label class="f" data-k="'+i.k+'"><span class="'+(i.req?"req":"")+'">'+i.label+'</span><input type="text" name="'+i.k+'"><span class="err">此欄位為必填</span></label><label class="f" data-k="'+i.q+'"><span class="'+(i.req?"req":"")+'">'+i.ql+'</span><input type="text" inputmode="numeric" name="'+i.q+'"><span class="err">必填</span></label></div>';
+  }).join("");
+}
+
+function open(id){
+  var p=PAGES[id];
+  Object.keys(PAGES).forEach(function(k){document.getElementById("t-"+k).classList.toggle("on",k===id)});
+  app.innerHTML='<div class="card rules">'+p.rules+'</div><form class="card" novalidate><h2>'+p.title+'</h2>'+
+    p.fields.map(function(f){return f.t==="items"?itemsHTML():fieldHTML(f)}).join("")+
+    '<button class="go" type="submit">送出申請</button></form><div class="card done" id="done"></div>';
+  app.querySelector("form").onsubmit=function(e){e.preventDefault();submit(id,e.target)};
+  var uo=document.getElementById("o-use");
+  if(uo){
+    var ux=document.createElement("label");ux.className="f";ux.id="useOther";ux.style.display="none";ux.setAttribute("data-k","useOther");
+    ux.innerHTML='<span class="req">其他用途說明</span><input type="text" name="useOther" placeholder="請填寫場地用途"><span class="err">請填寫其他用途</span>';
+    uo.parentNode.insertBefore(ux,uo.nextSibling);
+    uo.onchange=function(){var c=uo.querySelector(":checked");ux.style.display=c&&c.value==="其他"?"block":"none"};
+  }
+  var ro=document.getElementById("o-room");
+  if(ro){
+    var bx=document.createElement("label");bx.className="f";bx.id="roomOther";bx.style.display="none";bx.setAttribute("data-k","roomOther");
+    bx.innerHTML='<span class="req">其他場地說明</span><input type="text" name="roomOther" placeholder="請填寫要借用的場地"><span class="err">請填寫其他場地</span>';
+    ro.parentNode.insertBefore(bx,ro.nextSibling);
+    ro.onchange=function(){var c=ro.querySelector('[value="其他"]');bx.style.display=c&&c.checked?"block":"none"};
+  }
+  app.querySelectorAll('[name="floor"]').forEach(function(r){r.onchange=function(){
+    var ob=document.getElementById("roomOther");if(ob){ob.style.display="none";ob.classList.remove("bad")}
+    var f=p.fields.filter(function(x){return x.k==="room"})[0];
+    document.getElementById("o-room").innerHTML=f.by[r.value].map(function(o){return'<label class="opt"><input type="checkbox" name="room" value="'+o+'"> '+o+'</label>'}).join("");
+  }});
+}
+
+function submit(id,form){
+  var p=PAGES[id],all=p.fields.filter(function(f){return f.t!=="items"}),ok=true,data={};
+  if(id==="goods"){ITEMS.forEach(function(i){all.push({k:i.k,label:i.label,req:i.req,t:"text"});all.push({k:i.q,label:i.ql+"("+i.label.slice(-2,-1)+")",req:i.req,t:"text"})})}
+  all.forEach(function(f){
+    var el=form.querySelector('[name="'+f.k+'"]'),v="";
+    if(f.t==="multi"){v=[].map.call(form.querySelectorAll('[name="'+f.k+'"]:checked'),function(x){return x.value}).join("、")}
+    else if(f.t==="radio"){var c=form.querySelector('[name="'+f.k+'"]:checked');v=c?c.value:""}
+    else if(f.t==="check"){v=el.checked?"是":""}
+    else v=el.value.trim();
+    var host=form.querySelector('[data-k="'+f.k+'"]');
+    var bad=f.req&&!v;if(bad)ok=false;
+    if(host)host.classList.toggle("bad",bad);
+    data[f.label]=v;
+  });
+  if(id==="venue"){
+    var ob=form.querySelector("#roomOther"),need=ob.style.display!=="none",ov=form.roomOther.value.trim();
+    ob.classList.toggle("bad",need&&!ov);if(need&&!ov)ok=false;
+    data["其他場地說明"]=need?ov:"";
+    var ux=form.querySelector("#useOther"),un=ux.style.display!=="none",uv=form.useOther.value.trim();
+    ux.classList.toggle("bad",un&&!uv);if(un&&!uv)ok=false;
+    data["其他用途說明"]=un?uv:"";
+  }
+  if(id==="goods"&&form.pick.value&&form.ret.value&&form.ret.value<form.pick.value){alert("歸還日期不能早於拿取日期");return}
+  if(id==="car"&&form.keyOut.value&&form.keyIn.value&&form.keyIn.value<=form.keyOut.value){alert("歸還鑰匙時間需晚於拿鑰匙時間");return}
+  if(id==="venue"&&form.start.value&&form.end.value&&form.end.value<=form.start.value){alert("結束時間需晚於使用時間");return}
+  if(!ok){var b=form.querySelector(".bad");if(b)b.scrollIntoView({behavior:"smooth",block:"center"});return}
+  var text="【"+p.title+"】\n"+Object.keys(data).filter(function(k){return data[k]}).map(function(k){return k+"："+data[k]}).join("\n");
+  var d=document.getElementById("done");form.style.display="none";d.style.display="block";
+  if(ENDPOINT){
+    d.innerHTML="<h2>送出中…</h2>";
+    fetch(ENDPOINT,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain"},body:JSON.stringify({form:p.title,data:data})})
+      .then(function(){d.innerHTML="<h2>✅ 已成功送出，感謝你的申請！</h2><button onclick=\"open('"+id+"')\">再填一份</button>"})
+      .catch(function(){d.innerHTML="<h2 style='color:var(--bad)'>送出失敗，請稍後再試</h2><button onclick=\"open('"+id+"')\">返回</button>"});
+  }else{
+    d.innerHTML="<h2>✅ 申請內容已整理完成</h2><p>請複製下方內容傳給總務組。</p><pre id='sum'>"+esc(text)+"</pre><button id='cp'>📋 複製內容</button><button onclick=\"open('"+id+"')\">再填一份</button>";
+    document.getElementById("cp").onclick=function(){
+      var t=document.getElementById("sum").textContent;
+      try{navigator.clipboard.writeText(t).then(function(){document.getElementById("cp").textContent="已複製 ✓"})}catch(e){var r=document.createRange();r.selectNode(document.getElementById("sum"));getSelection().removeAllRanges();getSelection().addRange(r)}
+    };
+  }
+  d.scrollIntoView({behavior:"smooth"});
+}
+open("goods");
+</script>
+</body>
+</html>
